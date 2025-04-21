@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <title>Pong AI vs AI Estratégico (Integrado)</title>
+    <style>
+        :root {
+            --primary-color: #0f0f0f;
+            --accent-color: #ffffff;
+            --border-color: #333333;
+            --button-hover: #555555;
+            --left-ai-color: #4fc3f7;
+            --right-ai-color: #f06292;
+            --winner-bg: #283593;
+            --start-bg: #212121;
+            --game-width: 750px;
+            --game-height: 585px;
+            --transition-duration: .4s;
+            --focus-outline: 2px solid #fbc02d;
+        }
+        * {margin:0;padding:0;box-sizing:border-box;}
+        body {
+            background-color: var(--primary-color);
+            color: var(--accent-color);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            transition: background .5s;
+        }
+        .dark-mode {
+            --primary-color: #181818;
+            --accent-color: #e3e3e3;
+            --border-color: #444;
+            --button-hover: #666;
+            --winner-bg: #1b5e20;
+            --start-bg: #263238;
+        }
+        header {text-align: center;margin-bottom: 20px;width: 100%;}
+        h1 {font-size: 2rem;padding: 10px;text-shadow: 0 0 5px rgba(255,255,255,0.3);}
+        main {display: flex;flex-direction: column;align-items: center;width: var(--game-width);max-width: 100%;}
+        #gameCanvas {
+            background-color: #000;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,.5);
+            user-select: none;
+            display: block;
+            outline: none;
+            transition: box-shadow .3s;
+        }
+        #gameCanvas:focus {box-shadow: 0 0 0 3px #fbc02d;}
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        button, select {
+            padding: 8px 16px;
+            background-color: var(--border-color);
+            color: var(--accent-color);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background .2s;
+        }
+        button:hover, select:focus {background: var(--button-hover);}
+        button:active {transform: scale(.98);}
+        .ia-label {
+            margin: 7px 0 15px 0;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 1rem;
+            width: 100%;
+            max-width: 730px;
+            text-shadow: 0 0 2px #000;
+        }
+        .ia-left {color: var(--left-ai-color);}
+        .ia-right {color: var(--right-ai-color);text-align: right;}
+        #startScreen, #winnerScreen, #spectatorPanel {
+            position: fixed;
+            left: 0;top: 0;width: 100vw;height: 100vh;
+            background: var(--start-bg);
+            z-index: 999;display: flex;
+            flex-direction: column;
+            align-items: center;justify-content: center;
+            transition: opacity var(--transition-duration) ease;
+            opacity: 1;
+        }
+        #startScreen[hidden], #winnerScreen[hidden], #spectatorPanel[hidden] {opacity: 0;pointer-events: none;}
+        #winnerScreen {background: var(--winner-bg);}
+        #startScreen h2, #winnerScreen h2 {font-size:2.2rem;margin-bottom:24px;}
+        #winnerScreen .stats, #startScreen .stats {
+            background: rgba(0,0,0,.25);
+            border-radius: 12px;
+            padding: 25px 30px;
+            color: #fff;
+            margin-top: 18px;
+            min-width: 300px;
+        }
+        #winnerScreen .historial, #startScreen .historial {margin-top: 35px;}
+        #winnerScreen button, #startScreen button, #spectatorPanel button {margin: 15px 0 0 0;}
+        .dificultad-panel {
+            margin: 12px 0 0 0;
+            display: flex;gap:10px;align-items: center;
+        }
+        .dificultad-panel label {margin-right: 7px;}
+        .personaliza-panel {
+            margin: 8px 0 0 0;
+            display: flex;
+            flex-direction: row;
+            gap: 15px;
+        }
+        .personaliza-panel input[type=number] {
+            width:45px;padding:2px 4px;border-radius:2px;border:1px solid #aaa;
+            background: #222;color: #fff;
+        }
+        .switch-mode {
+            position: absolute;top: 15px;right: 22px;
+            background: #222;
+            font-size: 1.05rem;
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid #444;
+        }
+        .estatistica {
+            font-size: .98rem;
+        }
+        .estatistica b {color: #fbc02d;}
+        .spectator-bar {
+            position: fixed;
+            right: 0;bottom: 0;
+            background: #111c;
+            padding: 10px 22px;
+            border-radius: 14px 0 0 0;
+            font-size: 1.1rem;
+            color: #fff;
+            z-index: 20;
+            display: flex;gap: 20px;
+            align-items: center;
+        }
+        .spectator-bar label {margin-right:6px;}
+        .spectator-bar select, .spectator-bar input[type=range] {
+            margin-right: 8px;
+        }
+        .hidden {display:none!important;}
+        @media (max-width: 900px) {
+            :root {--game-width:98vw;}
+            #gameCanvas {width: 99vw;}
+            .ia-label, .estatistica {max-width: 99vw;}
+        }
+        @media (max-width: 600px) {
+            header h1 {font-size:1.2rem;}
+            .ia-label{font-size:.95rem;}
+            #winnerScreen .stats, #startScreen .stats {min-width: unset;}
+        }
+    </style>
+</head>
+<body>
+    <button class="switch-mode" id="switchThemeBtn" aria-label="Cambiar modo oscuro/claro">🌙</button>
+    <header>
+        <h1>Pong AI vs AI Estratégico (Integrado)</h1>
+    </header>
+    <main>
+        <div class="ia-label">
+            <span class="ia-left">IA Izquierda</span>
+            <span class="ia-right">IA Derecha</span>
+        </div>
+        <canvas id="gameCanvas" width="750" height="585" tabindex="0" aria-label="Juego Pong IA vs IA" role="img"></canvas>
+        <div class="controls" id="mainControls">
+            <button id="restartBtn" aria-label="Reiniciar partida">Reiniciar</button>
+            <button id="pauseBtn" aria-label="Pausar partida">Pausar</button>
+            <button id="spectatorBtn" aria-label="Modo espectador">👁️</button>
+            <button id="exportBtn" aria-label="Exportar historial">Exportar</button>
+        </div>
+        <div class="estatistica" id="statsPanel"></div>
+    </main>
+    <footer>
+        <p id="footerPong">Pong AI</p>
+    </footer>
+
+    <section id="startScreen" aria-modal="true" role="dialog">
+        <h2>¡Bienvenido a Pong AI!</h2>
+        <div class="dificultad-panel">
+            <label for="selectDificultad">Dificultad:</label>
+            <select id="selectDificultad">
+                <option value="facil">Fácil</option>
+                <option value="normal" selected>Normal</option>
+                <option value="dificil">Difícil</option>
+                <option value="personalizada">Personalizada</option>
+            </select>
+        </div>
+        <div class="personaliza-panel hidden" id="personalizaPanel">
+            <label>Velocidad pelota: <input id="customBallSpeed" type="number" min="2" max="15" step="0.1" value="5"></label>
+            <label>Reacción IA: <input id="customReaction" type="number" min="2" max="20" step="1" value="8"></label>
+            <label>Variabilidad IA: <input id="customVariance" type="number" min="0" max="5" step="0.1" value="1.5"></label>
+        </div>
+        <button id="startBtn" aria-label="Empezar partida">Empezar</button>
+        <div class="stats" id="startStats"></div>
+        <div class="historial" id="historialInicio"></div>
+    </section>
+    <section id="winnerScreen" aria-modal="true" role="dialog" hidden>
+        <h2 id="winnerTitle">¡Ganador!</h2>
+        <div class="stats" id="winnerStats"></div>
+        <button id="playAgainBtn" aria-label="Jugar de nuevo">Jugar de nuevo</button>
+        <div class="historial" id="historialFinal"></div>
+    </section>
+    <section id="spectatorPanel" hidden>
+        <h2>Modo Espectador</h2>
+        <button id="closeSpectatorBtn" aria-label="Cerrar modo espectador">Cerrar</button>
+    </section>
+    <div class="spectator-bar hidden" id="spectatorBar">
+        <label>Velocidad partida
+            <input type="range" id="speedSlider" min="0.3" max="2.5" step="0.05" value="1">
+        </label>
+        <button id="playPauseSpectator" aria-label="Pausar/Reanudar espectador">⏸️</button>
+        <select id="replaySelector"></select>
+    </div>
+    <audio id="audioPaddle" src="data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYQAAAB5eXl5eXl5eXl5AAAAeXl5eXl5eQAAAHl5eXkAAAB5eQAAAHkAAAA=" preload="auto"></audio>
+    <audio id="audioScore" src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YXQAAACqqqqqqgAAAKqqqqoAAACqAAAAAA==" preload="auto"></audio>
+    <audio id="audioPause" src="data:audio/wav;base64,UklGRhAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAAAAP8A/wAAAP8AAAAA/wD/AP8A" preload="auto"></audio>
+    <script>
+    (function(){
+        'use strict';
+        const doc = document, $ = e => doc.getElementById(e), c = $('gameCanvas'), ctx = c.getContext('2d'), GRID=15;
+        let gamePaused=true, animationFrameId=null, focusTimeout=null, theme='dark', gameActive=false, stats={}, partidas=[], partidaActual=null, speedRatio=1, focusActive=true, spectatorMode=false, spectatorIdx=0, spectatorPaused=false, replayData=[], replayInterval=null;
+
+        const sound = {
+            paddle: ()=>{try{$('audioPaddle').currentTime=0;$('audioPaddle').play();}catch{}},
+            score: ()=>{try{$('audioScore').currentTime=0;$('audioScore').play();}catch{}},
+            pause: ()=>{try{$('audioPause').currentTime=0;$('audioPause').play();}catch{}}
+        };
+
+        const dificultadParams = {
+            facil:{ ball:4, reaction:12, variance:2.2},
+            normal:{ ball:5, reaction:8, variance:1.5},
+            dificil:{ ball:7, reaction:5, variance:1},
+            personalizada:null
+        };
+
+        let config = Object.assign({}, dificultadParams.normal);
+
+        function setDificultad(val){
+            if(val==='personalizada'){
+                let ball=parseFloat($('customBallSpeed').value)||5;
+                let reaction=parseInt($('customReaction').value)||8;
+                let variance=parseFloat($('customVariance').value)||1.5;
+                config={ball,reaction,variance};
+            }else config=Object.assign({},dificultadParams[val]);
+        }
+        function savePartida(p){
+            try{
+                let arr=JSON.parse(localStorage.getItem('pong_hist'))||[];
+                arr.unshift(p);
+                if(arr.length>12)arr.length=12;
+                localStorage.setItem('pong_hist',JSON.stringify(arr));
+            }catch{}
+        }
+        function getHistorial(){
+            try{let arr=JSON.parse(localStorage.getItem('pong_hist'));return Array.isArray(arr)?arr:[];}catch{return [];}
+        }
+        function formatFecha(d){
+            return d.toLocaleDateString('es-ES',{year:'numeric',month:'2-digit',day:'2-digit'})+" "+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+        }
+        function sanitize(t){return String(t).replace(/[<>&"']/g,m=>({ "<":"&lt;","&":"&amp;",'"':"&quot;","'":"&#39;",">":"&gt;" }[m]));}
+        function showHistorial(node){
+            let arr=getHistorial();
+            if(!arr.length){node.innerHTML='<em>No hay partidas previas.</em>';return;}
+            let html='<b>Historial reciente</b><ol style="padding-left:20px;">';
+            for(let p of arr){
+                html+=`<li>${sanitize(p.winner)} - ${sanitize(p.score)}<br><span style="font-size:.92em;opacity:.75;">${sanitize(p.stats)}<br>${sanitize(p.date)}</span></li>`;
+            }
+            html+='</ol>';node.innerHTML=html;
+        }
+        function exportHistorial(){
+            let arr=getHistorial();
+            if(!arr.length)return;
+            let csv="Ganador,Puntaje,Estadísticas,Fecha\n"+arr.map(p=>[p.winner,p.score,p.stats,p.date].map(e=>'"'+sanitize(e).replace(/"/g,'""')+'"').join(",")).join("\n");
+            let blob=new Blob([csv],{type:'text/csv'}),a=doc.createElement('a');
+            a.href=URL.createObjectURL(blob);a.download="pong_historial.csv";
+            doc.body.appendChild(a);a.click();setTimeout(()=>a.remove(),200);
+        }
+        function switchTheme(){
+            theme=theme==='dark'?'light':'dark';
+            if(theme==='dark')doc.body.classList.add('dark-mode');
+            else doc.body.classList.remove('dark-mode');
+            $('switchThemeBtn').textContent=theme==='dark'?'🌙':'☀️';
+        }
+        $('switchThemeBtn').onclick=switchTheme;
+
+        // Pantalla de Inicio
+        $('selectDificultad').onchange=()=>{
+            if($('selectDificultad').value==='personalizada')$('personalizaPanel').classList.remove('hidden');
+            else $('personalizaPanel').classList.add('hidden');
+        };
+        $('customBallSpeed').oninput=$('customReaction').oninput=$('customVariance').oninput=()=>{
+            if($('selectDificultad').value==='personalizada')setDificultad('personalizada');
+        };
+
+        // Mostrar historial en pantallas
+        showHistorial($('historialInicio'));
+        showHistorial($('historialFinal'));
+
+        // Pantalla inicio
+        $('startBtn').onclick=()=>{
+            setDificultad($('selectDificultad').value);
+            ocultarPantalla('startScreen');
+            iniciarJuego();
+        };
+        function ocultarPantalla(id){
+            let el=$(id);
+            el.setAttribute('hidden','');
+            setTimeout(()=>el.style.display='none',400);
+        }
+        function mostrarPantalla(id){
+            let el=$(id);
+            el.style.display='flex';
+            setTimeout(()=>el.removeAttribute('hidden'),10);
+        }
+
+        // Accesibilidad: teclas
+        c.setAttribute('tabindex','0');
+        c.addEventListener('keydown',e=>{
+            if(e.code==='Space'){togglePause();}
+            if(e.code==='KeyR'){reiniciarJuego();}
+        });
+
+        // Control focus
+        doc.addEventListener('visibilitychange',()=>{
+            focusActive=!doc.hidden;
+            if(doc.hidden)pausarJuego(true);
+            else if(gameActive&&!gamePaused)continuarJuego();
+        });
+
+        // Listeners globales (event delegation)
+        $('mainControls').onclick=e=>{
+            const t=e.target;
+            if(t.id==='restartBtn')reiniciarJuego();
+            if(t.id==='pauseBtn')togglePause();
+            if(t.id==='exportBtn')exportHistorial();
+            if(t.id==='spectatorBtn')toggleSpectator();
+        };
+        $('playAgainBtn').onclick=()=>{ocultarPantalla('winnerScreen');reiniciarJuego(true);};
+        // Prevent XSS on buttons/inputs
+        for(let node of doc.querySelectorAll('button, input, select'))node.setAttribute('tabindex','0');
+
+        // Modo espectador
+        function toggleSpectator(){
+            spectatorMode=!spectatorMode;
+            $('spectatorPanel').hidden=!spectatorMode;
+            $('spectatorBar').classList.toggle('hidden',!spectatorMode);
+            if(spectatorMode)mostrarRepeticiones();
+            else cerrarEspectador();
+        }
+        $('closeSpectatorBtn').onclick=toggleSpectator;
+        $('playPauseSpectator').onclick=()=>{
+            spectatorPaused=!spectatorPaused;
+            $('playPauseSpectator').textContent=spectatorPaused?'▶️':'⏸️';
+            if(!spectatorPaused)replayLoop();
+            else clearInterval(replayInterval);
+        };
+        $('speedSlider').oninput=()=>{speedRatio=parseFloat($('speedSlider').value)||1;};
+        $('replaySelector').onchange=()=>{
+            spectatorIdx=parseInt($('replaySelector').value)||0;
+            replayData=partidas[spectatorIdx]?.frames||[];
+            replayFrameIdx=0;
+            replayLoop();
+        };
+        function mostrarRepeticiones(){
+            partidas=getHistorial();
+            let sel=$('replaySelector');
+            sel.innerHTML='';
+            partidas.forEach((p,i)=>{
+                let opt=doc.createElement('option');
+                opt.value=i;opt.textContent=`${p.winner} (${p.score}) - ${p.date}`;
+                sel.appendChild(opt);
+            });
+            if(partidas.length){
+                spectatorIdx=0;replayData=partidas[0].frames||[];
+                replayFrameIdx=0;replayLoop();
+            }
+        }
+        let replayFrameIdx=0;
+        function replayLoop(){
+            if(!spectatorMode||!replayData.length)return;
+            clearInterval(replayInterval);
+            replayInterval=setInterval(()=>{
+                if(spectatorPaused)return;
+                if(replayFrameIdx>=replayData.length){replayFrameIdx=0;}
+                let frame=replayData[replayFrameIdx++];
+                renderReplayFrame(frame);
+            },33/speedRatio);
+        }
+        function renderReplayFrame(f){
+            ctx.clearRect(0,0,c.width,c.height);
+            ctx.fillStyle='white';
+            ctx.fillRect(f.lp.x,f.lp.y,f.lp.w,f.lp.h);
+            ctx.fillRect(f.rp.x,f.rp.y,f.rp.w,f.rp.h);
+            ctx.save();
+            ctx.fillStyle='lightgrey';
+            ctx.fillRect(0,0,c.width,GRID);
+            ctx.fillRect(0,c.height-GRID,c.width,GRID);
+            ctx.restore();
+            ctx.fillStyle='white';
+            ctx.font='24px Arial';ctx.textAlign='center';
+            ctx.fillText(f.s1,c.width/4,50);ctx.fillText(f.s2,c.width*3/4,50);
+            if(!f.b.resetting)ctx.fillRect(f.b.x,f.b.y,f.b.w,f.b.h);
+            let mx=c.width/2-GRID/2;
+            for(let i=GRID;i<c.height-GRID;i+=GRID*2)ctx.fillRect(mx,i,GRID,GRID);
+        }
+        function cerrarEspectador(){
+            clearInterval(replayInterval);replayData=[];replayFrameIdx=0;
+        }
+
+        // Animación transición reinicio/fin
+        function animarTransicion(color){
+            ctx.save();
+            ctx.globalAlpha=0.7;
+            ctx.fillStyle=color;
+            ctx.fillRect(0,0,c.width,c.height);
+            ctx.restore();
+        }
+
+        // --- Lógica Juego Ofuscada y Segura ---
+        let ofuscar=(f)=>{return function(){return f.apply(this,arguments);}};
+        let IA_movimiento = ofuscar(function(p,o,rt,side){
+            if(gamePaused||ball.resetting)return rt;
+            if(rt>0)return rt-1;
+            let py=predecirY(p),tpy,estrategia=aleatorio()<.75;
+            if(estrategia&&((ball.dx>0&&side==='R')||(ball.dx<0&&side==='L'))){
+                let oc=o.y+o.h/2,ao=p.h*.3;
+                tpy=py-p.h/2+(oc<c.height/2?ao:-ao);
+            }else tpy=py-p.h/2;
+            tpy=Math.max(GRID,Math.min(tpy,c.height-GRID-p.h));
+            let rf=aleatorio(),spd=4.5+(rf*config.variance),dy=tpy-p.y;
+            p.dy=Math.abs(dy)>GRID/3?Math.sign(dy)*spd:0;
+            return config.reaction+Math.floor(aleatorio()*4);
+        });
+
+        function aleatorio(){
+            if(window.crypto&&window.crypto.getRandomValues){
+                let a=new Uint32Array(1);window.crypto.getRandomValues(a);
+                return a[0]/4294967296;
+            }
+            return Math.random();
+        }
+        function predecirY(p){
+            if(gamePaused||ball.resetting||ball.dx===0)return c.height/2;
+            let b={x:ball.x,y:ball.y,dx:ball.dx,dy:ball.dy},t;
+            if(ball.dx>0&&p===paletaD)t=(p.x-ball.x)/ball.dx;
+            else if(ball.dx<0&&p===paletaI)t=(p.x+p.w-ball.x)/ball.dx;
+            else return p.y+p.h/2;
+            if(t<0)t=0;
+            let y=b.y+b.dy*t,eh=c.height-2*GRID-ball.h;
+            if(eh<=0)return c.height/2;
+            while(y<GRID||y>c.height-GRID-ball.h){
+                if(y<GRID)y=GRID+(GRID-y);
+                else y=(c.height-GRID-ball.h)-(y-(c.height-GRID-ball.h));
+            }
+            return y+ball.h/2;
+        }
+
+        // --- Objetos y Juego ---
+        let paletaI,paletaD,ball,scores,leftTimer,rightTimer,rebotes,velMedia,frames,dataFrames;
+        function inicializar(){
+            paletaI={x:GRID*2,y:c.height/2-GRID*2.5,w:GRID,h:GRID*5,dy:0};
+            paletaD={x:c.width-GRID*3,y:c.height/2-GRID*2.5,w:GRID,h:GRID*5,dy:0};
+            ball={x:c.width/2-GRID/2,y:c.height/2-GRID/2,w:GRID,h:GRID,dx:0,dy:0,resetting:true};
+            scores={ai1:0,ai2:0};
+            leftTimer=rightTimer=0;rebotes=0;velMedia=0;frames=0;dataFrames=[];
+        }
+
+        function reiniciarJuego(noPantalla){
+            gameActive=false;
+            if(animationFrameId)cancelAnimationFrame(animationFrameId),animationFrameId=null;
+            inicializar();
+            stats={rebotes:0,duracion:0,vel:0};
+            $('statsPanel').innerHTML='';
+            if(!noPantalla){mostrarPantalla('startScreen');showHistorial($('historialInicio'));}
+            else{gamePaused=true;setTimeout(()=>{gamePaused=false;resetBall();},450);}
+        }
+        function iniciarJuego(){
+            gameActive=true;
+            inicializar();
+            stats.inicio=Date.now();
+            gamePaused=false;
+            resetBall();
+        }
+        function togglePause(){
+            gamePaused=!gamePaused;
+            $('pauseBtn').textContent=gamePaused?'Reanudar':'Pausar';
+            sound.pause();
+            if(!gamePaused)continuarJuego();
+            else pausarJuego();
+        }
+        function continuarJuego(){
+            if(!gamePaused&&gameActive&&!animationFrameId)requestNextFrame(gameLoop);
+        }
+        function pausarJuego(oculto){
+            if(animationFrameId)cancelAnimationFrame(animationFrameId),animationFrameId=null;
+            if(!oculto)renderGame();
+        }
+        function resetBall(){
+            ball.resetting=true;
+            ball.x=c.width/2-ball.w/2;ball.y=c.height/2-ball.h/2;ball.dx=0;ball.dy=0;
+            renderGame();
+            setTimeout(()=>{
+                let av=Math.PI/4,an=(aleatorio()*av*2)-av,d=aleatorio()>.5?1:-1;
+                ball.dx=d*config.ball*Math.cos(an);
+                ball.dy=config.ball*Math.sin(an);ball.resetting=false;
+                if(!gamePaused)requestNextFrame(gameLoop);
+            },400);
+        }
+        function updateBallPhysics(){
+            if(gamePaused||ball.resetting)return;
+            ball.x+=ball.dx;ball.y+=ball.dy;
+            if(ball.y<=GRID){ball.dy*=-1;ball.y=GRID;sound.paddle();}
+            else if(ball.y+ball.h>=c.height-GRID){ball.dy*=-1;ball.y=c.height-GRID-ball.h;sound.paddle();}
+            let hitI=ball.dx<0&&colision(ball,paletaI),hitD=ball.dx>0&&colision(ball,paletaD);
+            if(hitI||hitD){
+                let p=hitI?paletaI:paletaD,m=Math.sqrt(ball.dx**2+ball.dy**2),nm=Math.min(m*1.03,13),hp=(ball.y+ball.h/2)-(p.y+p.h/2),n=hp/(p.h/2),mba=Math.PI/3,ang=n*mba,dx=hitI?1:-1;
+                ball.dx=dx*nm*Math.cos(ang);ball.dy=nm*Math.sin(ang);ball.x=hitI?paletaI.x+paletaI.w:paletaD.x-ball.w;
+                if(Math.abs(ball.dy)<.5)ball.dy=Math.sign(ball.dy||1)*.5;
+                rebotes++;sound.paddle();
+            }
+        }
+        function colision(o1,o2){
+            return o1.x<o2.x+o2.w&&o1.x+o1.w>o2.x&&o1.y<o2.y+o2.h&&o1.y+o1.h>o2.y;
+        }
+        function updatePaddles(){
+            if(gamePaused||ball.resetting)return;
+            paletaI.y+=paletaI.dy;paletaD.y+=paletaD.dy;
+            paletaI.y=Math.max(GRID,Math.min(paletaI.y,c.height-GRID-paletaI.h));
+            paletaD.y=Math.max(GRID,Math.min(paletaD.y,c.height-GRID-paletaD.h));
+        }
+        function checkScoreAndReset(){
+            if(ball.resetting)return false;
+            let scored=false;
+            if(ball.x+ball.w<0){scores.ai2++;scored=true;sound.score();}
+            else if(ball.x>c.width){scores.ai1++;scored=true;sound.score();}
+            if(scored){
+                renderGame();frames++;
+                if(scores.ai1>=3||scores.ai2>=3){
+                    let winner=scores.ai1>scores.ai2?'IA Izquierda':'IA Derecha';
+                    finalizarPartida(winner);
+                    return true;
+                }else{resetBall();return true;}
+            }
+            return false;
+        }
+        function renderGame(){
+            ctx.clearRect(0,0,c.width,c.height);
+            ctx.fillStyle='white';
+            ctx.save();
+            ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=5;
+            ctx.fillStyle='var(--left-ai-color)';ctx.fillRect(paletaI.x,paletaI.y,paletaI.w,paletaI.h);
+            ctx.fillStyle='var(--right-ai-color)';ctx.fillRect(paletaD.x,paletaD.y,paletaD.w,paletaD.h);
+            ctx.restore();
+            ctx.fillStyle='lightgrey';
+            ctx.fillRect(0,0,c.width,GRID);
+            ctx.fillRect(0,c.height-GRID,c.width,GRID);
+            let mx=c.width/2-GRID/2;
+            for(let i=GRID;i<c.height-GRID;i+=GRID*2)ctx.fillRect(mx,i,GRID,GRID);
+            ctx.fillStyle='white';ctx.font='24px Arial';ctx.textAlign='center';
+            ctx.fillText(scores.ai1,c.width/4,50);ctx.fillText(scores.ai2,c.width*3/4,50);
+            if(!ball.resetting){
+                ctx.save();
+                ctx.shadowColor='#fff';ctx.shadowBlur=12;
+                ctx.fillRect(ball.x,ball.y,ball.w,ball.h);
+                ctx.restore();
+            }
+            if(gamePaused){
+                ctx.save();
+                ctx.fillStyle='rgba(0,0,0,0.4)';
+                ctx.fillRect(0,0,c.width,c.height);
+                ctx.fillStyle='#fff';
+                ctx.font='36px Arial';
+                ctx.textAlign='center';
+                ctx.fillText('PAUSA',c.width/2,c.height/2);
+                ctx.restore();
+            }
+        }
+        function actualizarStats(){
+            let dur=(Date.now()-stats.inicio)/1000,vm=frames?Math.round(velMedia/frames*100)/100:0,reb=rebotes;
+            $('statsPanel').innerHTML=`Duración: <b>${Math.floor(dur)}s</b> | Rebotes: <b>${reb}</b> | Vel. media: <b>${vm}</b>`;
+        }
+        function gameLoop(){
+            if(gamePaused||ball.resetting){animationFrameId=null;renderGame();return;}
+            if(ball.dx<0){leftTimer=IA_movimiento(paletaI,paletaD,leftTimer,'L');paletaD.dy=0;}
+            else if(ball.dx>0){rightTimer=IA_movimiento(paletaD,paletaI,rightTimer,'R');paletaI.dy=0;}
+            else{paletaI.dy=0;paletaD.dy=0;}
+            updatePaddles();updateBallPhysics();
+            velMedia+=(Math.abs(ball.dx)+Math.abs(ball.dy))/2;
+            frames++;actualizarStats();
+            dataFrames.push({
+                lp:{x:paletaI.x,y:paletaI.y,w:paletaI.w,h:paletaI.h},
+                rp:{x:paletaD.x,y:paletaD.y,w:paletaD.w,h:paletaD.h},
+                b:{x:ball.x,y:ball.y,w:ball.w,h:ball.h,resetting:ball.resetting},
+                s1:scores.ai1,s2:scores.ai2
+            });
+            renderGame();
+            if(!checkScoreAndReset()&&!gamePaused)requestNextFrame(gameLoop);
+            else animationFrameId=null;
+        }
+        function requestNextFrame(cb){
+            if(animationFrameId)cancelAnimationFrame(animationFrameId);
+            animationFrameId=requestAnimationFrame(cb);
+        }
+        function finalizarPartida(winner){
+            gameActive=false;gamePaused=true;animationFrameId=null;
+            let dur=(Date.now()-stats.inicio)/1000,vm=frames?Math.round(velMedia/frames*100)/100:0,reb=rebotes;
+            let resumen=`Duración: ${Math.floor(dur)}s, Rebotes: ${reb}, Vel.media: ${vm}`;
+            let score=`${scores.ai1} - ${scores.ai2}`;
+            let p={
+                winner:winner,score:score,stats:resumen,date:formatFecha(new Date()),frames:dataFrames.slice()
+            };
+            savePartida(p);
+            $('winnerTitle').textContent='¡Ganador: '+sanitize(winner)+'!';
+            $('winnerStats').innerHTML=`Puntaje final: <b>${score}</b><br>${resumen}`;
+            showHistorial($('historialFinal'));
+            mostrarPantalla('winnerScreen');
+            animarTransicion(winner==='IA Izquierda'?'#4fc3f7':'#f06292');
+        }
+
+        // --- Iniciar ---
+        mostrarPantalla('startScreen');
+        // Focus accesible
+        setTimeout(()=>c.focus(),800);
+
+    })();
+    </script>
+</body>
+</html>
