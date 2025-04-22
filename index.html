@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self';">
     <title>Pong AI vs AI Estratégico (Integrado)</title>
     <style>
         :root {
@@ -49,7 +48,6 @@
             border: 2px solid var(--border-color);
             border-radius: 4px;
             box-shadow: 0 0 10px rgba(0,0,0,.5);
-            -webkit-user-select: none; /* Safari */
             user-select: none;
             display: block;
             outline: none;
@@ -226,20 +224,11 @@
         <button id="playPauseSpectator" aria-label="Pausar/Reanudar espectador">⏸️</button>
         <select id="replaySelector"></select>
     </div>
-    <audio id="audioPaddle" src="data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYQAAAB5eXl5eXl5eXl5AAAAeXl5eXl5eQAAAHl5eXkAAAB5eQAAAHkAAAA=" preload="auto"></audio>
-    <audio id="audioScore" src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YXQAAACqqqqqqgAAAKqqqqoAAACqAAAAAA==" preload="auto"></audio>
-    <audio id="audioPause" src="data:audio/wav;base64,UklGRhAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAAAAP8A/wAAAP8AAAAA/wD/AP8A" preload="auto"></audio>
     <script>
     (function(){
         'use strict';
         const doc = document, $ = e => doc.getElementById(e), c = $('gameCanvas'), ctx = c.getContext('2d'), GRID=15;
         let gamePaused=true, animationFrameId=null, focusTimeout=null, theme='dark', gameActive=false, stats={}, partidas=[], partidaActual=null, speedRatio=1, focusActive=true, spectatorMode=false, spectatorIdx=0, spectatorPaused=false, replayData=[], replayInterval=null;
-
-        const sound = {
-            paddle: ()=>{try{$('audioPaddle').currentTime=0;$('audioPaddle').play();}catch{}},
-            score: ()=>{try{$('audioScore').currentTime=0;$('audioScore').play();}catch{}},
-            pause: ()=>{try{$('audioPause').currentTime=0;$('audioPause').play();}catch{}}
-        };
 
         const dificultadParams = {
             facil:{ ball:4, reaction:12, variance:2.2},
@@ -298,7 +287,6 @@
         }
         $('switchThemeBtn').onclick=switchTheme;
 
-        // Pantalla de Inicio
         $('selectDificultad').onchange=()=>{
             if($('selectDificultad').value==='personalizada')$('personalizaPanel').classList.remove('hidden');
             else $('personalizaPanel').classList.add('hidden');
@@ -307,11 +295,9 @@
             if($('selectDificultad').value==='personalizada')setDificultad('personalizada');
         };
 
-        // Mostrar historial en pantallas
         showHistorial($('historialInicio'));
         showHistorial($('historialFinal'));
 
-        // Pantalla inicio
         $('startBtn').onclick=()=>{
             setDificultad($('selectDificultad').value);
             ocultarPantalla('startScreen');
@@ -328,21 +314,18 @@
             setTimeout(()=>el.removeAttribute('hidden'),10);
         }
 
-        // Accesibilidad: teclas
         c.setAttribute('tabindex','0');
         c.addEventListener('keydown',e=>{
             if(e.code==='Space'){togglePause();}
             if(e.code==='KeyR'){reiniciarJuego();}
         });
 
-        // Control focus
         doc.addEventListener('visibilitychange',()=>{
             focusActive=!doc.hidden;
             if(doc.hidden)pausarJuego(true);
             else if(gameActive&&!gamePaused)continuarJuego();
         });
 
-        // Listeners globales (event delegation)
         $('mainControls').onclick=e=>{
             const t=e.target;
             if(t.id==='restartBtn')reiniciarJuego();
@@ -351,10 +334,8 @@
             if(t.id==='spectatorBtn')toggleSpectator();
         };
         $('playAgainBtn').onclick=()=>{ocultarPantalla('winnerScreen');reiniciarJuego(true);};
-        // Prevent XSS on buttons/inputs
         for(let node of doc.querySelectorAll('button, input, select'))node.setAttribute('tabindex','0');
 
-        // Modo espectador
         function toggleSpectator(){
             spectatorMode=!spectatorMode;
             $('spectatorPanel').hidden=!spectatorMode;
@@ -386,7 +367,7 @@
                 sel.appendChild(opt);
             });
             if(partidas.length){
-                spectatorIdx=0;replayData=partidas[0].frames||[];
+                spectatorIdx=0;replayData=partidas[0]?.frames||[];
                 replayFrameIdx=0;replayLoop();
             }
         }
@@ -421,8 +402,6 @@
         function cerrarEspectador(){
             clearInterval(replayInterval);replayData=[];replayFrameIdx=0;
         }
-
-        // Animación transición reinicio/fin
         function animarTransicion(color){
             ctx.save();
             ctx.globalAlpha=0.7;
@@ -430,9 +409,7 @@
             ctx.fillRect(0,0,c.width,c.height);
             ctx.restore();
         }
-
-        // --- Lógica Juego Ofuscada y Segura ---
-        let ofuscar=(f)=>{return function(){return f.apply(this,arguments);}};
+        let ofuscar=(f)=>{return function(){return f.apply(this,arguments);};};
         let IA_movimiento = ofuscar(function(p,o,rt,side){
             if(gamePaused||ball.resetting)return rt;
             if(rt>0)return rt-1;
@@ -446,7 +423,6 @@
             p.dy=Math.abs(dy)>GRID/3?Math.sign(dy)*spd:0;
             return config.reaction+Math.floor(aleatorio()*4);
         });
-
         function aleatorio(){
             if(window.crypto&&window.crypto.getRandomValues){
                 let a=new Uint32Array(1);window.crypto.getRandomValues(a);
@@ -469,8 +445,6 @@
             }
             return y+ball.h/2;
         }
-
-        // --- Objetos y Juego ---
         let paletaI,paletaD,ball,scores,leftTimer,rightTimer,rebotes,velMedia,frames,dataFrames;
         function inicializar(){
             paletaI={x:GRID*2,y:c.height/2-GRID*2.5,w:GRID,h:GRID*5,dy:0};
@@ -479,7 +453,6 @@
             scores={ai1:0,ai2:0};
             leftTimer=rightTimer=0;rebotes=0;velMedia=0;frames=0;dataFrames=[];
         }
-
         function reiniciarJuego(noPantalla){
             gameActive=false;
             if(animationFrameId)cancelAnimationFrame(animationFrameId),animationFrameId=null;
@@ -499,7 +472,6 @@
         function togglePause(){
             gamePaused=!gamePaused;
             $('pauseBtn').textContent=gamePaused?'Reanudar':'Pausar';
-            sound.pause();
             if(!gamePaused)continuarJuego();
             else pausarJuego();
         }
@@ -524,14 +496,14 @@
         function updateBallPhysics(){
             if(gamePaused||ball.resetting)return;
             ball.x+=ball.dx;ball.y+=ball.dy;
-            if(ball.y<=GRID){ball.dy*=-1;ball.y=GRID;sound.paddle();}
-            else if(ball.y+ball.h>=c.height-GRID){ball.dy*=-1;ball.y=c.height-GRID-ball.h;sound.paddle();}
+            if(ball.y<=GRID){ball.dy*=-1;ball.y=GRID;}
+            else if(ball.y+ball.h>=c.height-GRID){ball.dy*=-1;ball.y=c.height-GRID-ball.h;}
             let hitI=ball.dx<0&&colision(ball,paletaI),hitD=ball.dx>0&&colision(ball,paletaD);
             if(hitI||hitD){
                 let p=hitI?paletaI:paletaD,m=Math.sqrt(ball.dx**2+ball.dy**2),nm=Math.min(m*1.03,13),hp=(ball.y+ball.h/2)-(p.y+p.h/2),n=hp/(p.h/2),mba=Math.PI/3,ang=n*mba,dx=hitI?1:-1;
                 ball.dx=dx*nm*Math.cos(ang);ball.dy=nm*Math.sin(ang);ball.x=hitI?paletaI.x+paletaI.w:paletaD.x-ball.w;
                 if(Math.abs(ball.dy)<.5)ball.dy=Math.sign(ball.dy||1)*.5;
-                rebotes++;sound.paddle();
+                rebotes++;
             }
         }
         function colision(o1,o2){
@@ -546,8 +518,8 @@
         function checkScoreAndReset(){
             if(ball.resetting)return false;
             let scored=false;
-            if(ball.x+ball.w<0){scores.ai2++;scored=true;sound.score();}
-            else if(ball.x>c.width){scores.ai1++;scored=true;sound.score();}
+            if(ball.x+ball.w<0){scores.ai2++;scored=true;}
+            else if(ball.x>c.width){scores.ai1++;scored=true;}
             if(scored){
                 renderGame();frames++;
                 if(scores.ai1>=3||scores.ai2>=3){
@@ -631,10 +603,7 @@
             mostrarPantalla('winnerScreen');
             animarTransicion(winner==='IA Izquierda'?'#4fc3f7':'#f06292');
         }
-
-        // --- Iniciar ---
         mostrarPantalla('startScreen');
-        // Focus accesible
         setTimeout(()=>c.focus(),800);
 
     })();
