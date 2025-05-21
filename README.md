@@ -111,20 +111,7 @@ El JS está completamente embebido en una etiqueta `<script>`. El código:
 
 ---
 
-### **6. Seguridad**
-
-- **Sanitización XSS:**  
-  Todas las entradas de usuario y datos mostrados en historial y estadísticas son sanitizados antes de ser insertados en el DOM.
-- **No recursos externos:**  
-  No se cargan fuentes, imágenes, scripts ni hojas de estilo externas.
-- **Control de foco y visibilidad:**  
-  Cuando la pestaña pierde foco, el juego se pausa automáticamente.
-- **Accesibilidad:**  
-  Uso de ARIA, roles, y navegación por teclado para que el juego sea accesible.
-
----
-
-### **7. Accesibilidad y experiencia**
+### **6. Accesibilidad y experiencia**
 
 - **Compatibilidad total con teclado (teclas para pausar y reiniciar).**
 - **Paneles y modales accesibles y con roles adecuados.**
@@ -133,7 +120,7 @@ El JS está completamente embebido en una etiqueta `<script>`. El código:
 
 ---
 
-### **8. Funcionalidades avanzadas**
+### **7. Funcionalidades avanzadas**
 
 - **Dificultad y IA personalizable.**
 - **Historial de partidas y repeticiones visualizables.**
